@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: ["*"]
   workflow_dispatch:
-  
+
 jobs:
   build-rootless:
     runs-on: macos-13
@@ -14,11 +14,11 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-            
-      - uses: actions/checkout@main
+
+      - uses: actions/checkout@v4
 
       - name: Checkout theos/theos
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           repository: theos/theos
           ref: master
@@ -26,7 +26,7 @@ jobs:
           path: theos
 
       - name: Checkout SDKs
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           repository: xybp888/iOS-SDKs
           ref: master
@@ -34,50 +34,22 @@ jobs:
           path: theos/sdks
 
       - name: Install dependencies
-        run: brew install make xz ldid
+        run: brew install make xz ldid dpkg
 
-      - name: Build package (rootless)
-        run: THEOS=theos gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=iphone
+      - name: Build package (.deb)
+        run: THEOS=theos gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
-      - name: Upload a Build Artifact (rootless)
+      - name: Extract .app from .deb
+        run: |
+          mkdir -p Payload
+          dpkg-deb -xv packages/*.deb Payload/
+          cd Payload/Applications
+          APP_NAME=$(ls -d *.app | head -n 1)
+          cd ../..
+          zip -r9 ${APP_NAME}.ipa Payload
+
+      - name: Upload .ipa Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: packages iphoneos-arm64 (rootless)
-          path: packages/*.ipa
-
-  build-rootful:
-    runs-on: macos-12
-    steps:
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '14.2'
-            
-      - uses: actions/checkout@main
-
-      - name: Checkout theos/theos
-        uses: actions/checkout@main
-        with:
-          repository: theos/theos
-          ref: master
-          submodules: recursive
-          path: theos
-
-      - name: Checkout SDKs
-        uses: actions/checkout@main
-        with:
-          repository: xybp888/iOS-SDKs
-          ref: master
-          sparse-checkout: iPhoneOS14.2.sdk
-          path: theos/sdks
-
-      - name: Install dependencies
-        run: brew install make xz ldid
-
-      - name: Build package (rootful)
-        run: THEOS=theos gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=iphone
-
-      - name: Upload a Build Artifact (rootful)
-        uses: actions/upload-artifact@v4
-        with:
-          name: packages iphoneos-arm (rootful)
-          path: packages/*.ipa
+          name: scmusicplus (rootless)
+          path: '*.ipa'
